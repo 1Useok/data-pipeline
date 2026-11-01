@@ -1,0 +1,294 @@
+# =============================================================================
+# KRX Crawler Configuration
+# =============================================================================
+# Unified configuration for KRX data crawling
+# v1.0
+
+# =============================================================================
+# Crawl Configuration (HTTP/Network Settings)
+# =============================================================================
+crawl:
+  # HTTP endpoints
+  http:
+    # OTP generation URL
+    gen_url: "https://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd"
+    # CSV download URL
+    download_url: "https://data.krx.co.kr/comm/fileDn/download_csv/download.cmd"
+    # JSON API URL (for index list)
+    json_url: "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd"
+    # Referer header
+    referer: "https://data.krx.co.kr/contents/MDC/MDI/outerLoader/index.cmd"
+    # User agent (mobile for lower rate limiting)
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+  # Retry settings
+  retry:
+    # Maximum retry count
+    max_count: 30
+    # Delay between retries (seconds)
+    delay_seconds: 2.2
+
+  # Proxy settings (null to disable)
+  proxy:
+    host: null
+    port: null
+
+  # Encoding for KRX CSV responses
+  encoding: "cp949"
+
+# =============================================================================
+# Crawl Output Configuration (MFT_archive - raw crawled data)
+# =============================================================================
+crawl_output:
+  # Base directory for raw crawled data
+  # Default: $DATA_DB_PATH/MFT_backtesting/KR
+  # Can be overridden by MFT_ARCHIVE_PATH env var
+  base_dir: null  # null = derive from DATA_DB_PATH
+
+  # Country code subdirectory
+  country: "KR"
+
+  # Subdirectory structure under {base_dir}/{country}/
+  # Pattern: {base_dir}/{country}/{subdirectory}/{item_name}/{date}.parquet
+  subdirectory: "krx_crawled"
+
+  # File naming pattern (daily files)
+  # Available placeholders: {date} (YYYY-MM-DD format)
+  file_pattern: "{date}.parquet"
+
+  # Parquet compression
+  compression: "lz4"
+
+  # File permissions (optional, for NAS)
+  permissions:
+    mode: null  # e.g., "0664" or null to skip
+    group: null  # e.g., "data" or null to skip
+
+# =============================================================================
+# Convert Configuration (MFT_archive → MFT_raw)
+# =============================================================================
+convert:
+  # Source: MFT_archive (raw crawled data)
+  source:
+    # Base directory for source data
+    # Default: $DATA_DB_PATH/MFT_backtesting/KR
+    # Can be overridden by MFT_ARCHIVE_PATH env var
+    base_dir: null  # null = derive from DATA_DB_PATH
+    country: "KR"
+    subdirectory: "krx_crawled"
+
+  # Target: MFT_raw (processed data with timezone and calculations)
+  target:
+    # Base directory for processed data
+    # Default: $DATA_DB_PATH/MFT_raw
+    # Can be overridden by MFT_RAW_PATH env var
+    base_dir: null  # null = derive from DATA_DB_PATH
+    country: "KR"
+    subdirectory: "krx_crawled"
+
+    # File naming pattern (monthly files)
+    # Available placeholders: {ym} (YYYY-MM format)
+    file_pattern: "{ym}.parquet"
+
+    # Parquet compression
+    compression: "lz4"
+
+    # Permission settings (owner+group only, others have no access)
+    group: qt
+    # dir_mode: 0o2770 (rwxrws---) - default in code
+    # file_mode: 0o660 (rw-rw----) - default in code
+
+  # Timezone for date columns
+  timezone: "Asia/Seoul"
+
+  # Convert targets configuration
+  targets:
+    - name: "전종목등락률"
+      # Source directories to merge (relative to source path)
+      sources:
+        - "전종목등락률"
+        - "ETF전종목등락률"
+      # Output directory (relative to target path)
+      output_dir: "전종목등락률"
+      # Enable adjustment ratio calculation
+      calc_adj_ratio: true
+      description: "Stock + ETF price change rates with adjustment ratio"
+
+# =============================================================================
+# Crawl Targets Configuration
+# =============================================================================
+# Each target represents a KRX data screen/endpoint
+# Order determines execution sequence in DAG
+targets:
+  - name: "코스피지수시세추이"
+    screen_id: "11003"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT00301"
+    start_date: "1980-01-04"
+    range_query: true  # Uses start_date/end_date instead of single date
+    description: "KOSPI index daily OHLCV"
+
+  - name: "전종목등락률"
+    screen_id: "12002"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT01602"
+    start_date: "1995-05-02"
+    range_query: false
+    split_by_market: true  # Requires separate KOSPI/KOSDAQ requests
+    description: "All stock price change rates"
+
+  - name: "업종별분포"
+    screen_id: "12024"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT03801"
+    start_date: "1995-05-02"
+    range_query: false
+    split_by_market: true
+    description: "Sector distribution by market"
+
+  - name: "업종분류현황"
+    screen_id: "12025"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT03901"
+    start_date: "2001-01-02"
+    range_query: false
+    split_by_market: true
+    description: "Stock-to-sector classification mappings"
+
+  - name: "ETF전종목시세"
+    screen_id: "13101"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT04301"
+    start_date: "2002-10-14"
+    range_query: false
+    description: "ETF daily OHLCV"
+
+  - name: "ETF전종목등락률"
+    screen_id: "13102"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT04401"
+    start_date: "2002-10-14"
+    range_query: false
+    description: "ETF price change rates"
+
+  - name: "외국인보유량"
+    screen_id: "12023"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT03701"
+    start_date: "2005-10-04"
+    range_query: false
+    split_by_market: true
+    description: "Foreign investor holdings by stock"
+
+  - name: "전종목시세"
+    screen_id: "12001"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT01501"
+    start_date: "2007-01-02"
+    range_query: false
+    description: "All stock daily OHLCV"
+
+  - name: "지수구성종목"
+    screen_id: "11006"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT00601"
+    start_date: "2004-01-02"
+    range_query: false
+    parametric: true  # Requires additional parameters (index_name, market, ind_id)
+    description: "Index constituent stocks"
+
+  - name: "투자자별거래대금"
+    screen_id: "12010"
+    api_url: "dbms/MDC/STAT/standard/MDCSTAT02401"
+    start_date: "2003-01-02"
+    range_query: false
+    description: "투자자 구분별 종목 순매수 거래대금 (KRX bulk JSON)"
+
+# =============================================================================
+# Market Configuration
+# =============================================================================
+markets:
+  kospi:
+    id: "STK"
+    name: "kospi"
+    idx_ind_cd: "005"  # For sector distribution
+
+  kosdaq:
+    id: "KSQ"
+    name: "kosdaq"
+    idx_ind_cd: "021"  # For sector distribution
+
+# =============================================================================
+# Date Configuration
+# =============================================================================
+dates:
+  # Dates to exclude from processing (market closures, data issues)
+  exclude: []
+
+  # Historical date boundaries
+  history:
+    # Saturday trading ended on this date
+    # Before: Saturday is a trading day
+    # After: Saturday/Sunday are both non-trading days
+    saturday_trading_end: "1998-12-05"
+
+    # exchange_calendars library start date
+    # Before this date, use holidays JSON file
+    exchange_calendar_start: "2005-12-01"
+
+  # Special data handling dates
+  special:
+    # KOSPI index: before this date, OHLC values are duplicated from close
+    kospi_ohlc_start: "1994-10-29"
+
+# =============================================================================
+# Column Name Mapping (KRX API → Korean)
+# =============================================================================
+column_names:
+  # 공통 컬럼
+  ISU_SRT_CD: "종목코드"
+  ISU_CD: "sec_code"
+  ISU_NM: "종목명"
+  ISU_ABBRV: "종목명"
+  MKT_ID: "시장구분"
+  MKT_NM: "시장이름"
+  SECT_TP_NM: "소속부"
+
+  # 시세 컬럼 (주식/ETF/파생)
+  TDD_CLSPRC: "종가"
+  FLUC_TP_CD: "등락구분"
+  CMPPREVDD_PRC: "대비"
+  FLUC_RT: "등락률"
+  TDD_OPNPRC: "시가"
+  TDD_HGPRC: "고가"
+  TDD_LWPRC: "저가"
+  ACC_TRDVOL: "거래량"
+  ACC_TRDVAL: "거래대금"
+  MKTCAP: "시가총액"
+  LIST_SHRS: "상장주식수"
+
+  # 파생상품 전용 컬럼
+  SPOT_PRC: "현물가"
+  SETL_PRC: "정산가"
+  ACC_OPNINT_QTY: "미결제약정"
+  SECUGRP_ID: "증권그룹ID"
+
+  # ETF 전용 컬럼
+  NAV: "NAV"
+  INVSTASST_NETASST_TOTAMT: "순자산총액"
+  IDX_IND_NM: "기초지수명"
+  OBJ_STKPRC_IDX: "기초지수종가"
+  CMPPREVDD_IDX: "기초지수대비"
+  FLUC_TP_CD1: "기초지수등락구분"
+  FLUC_RT1: "기초지수등락률"
+
+  # 종목 상태 플래그
+  HALT_YN: "매매거래정지"
+  ARRANTRD_YN: "정리매매종목"
+  ADMISU_YN: "관리종목"
+  INVSTCAUTN_REMND_ISU_YN: "투자주의환기종목"
+  NFAITHDISCLS_YN: "불성실공시"
+  VLWLIQU_VALU_YN: "단일가매매대상초저유동성종목"
+  UNIT_TRD_YN: "상장주식수부족 우선주"
+  SRTTRM_OVERHEAT_ISU_TP_YN: "단기과열종목"
+  INVSTCAUTN_YN: "투자주의종목"
+  NVST_WARN_YN: "투자경고종목"
+  NVST_RISK_YN: "투자위험종목"
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

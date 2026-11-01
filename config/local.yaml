@@ -1,0 +1,27 @@
+# Local environment configuration
+environment: local
+
+data_db_path: "./data_db"  # host data folder (overridden by DATA_DB_PATH)
+docker_data_db_path: "/data_db"
+
+# KRX crawling
+krx:
+  proxy: null  # No proxy needed locally
+  save_path_key: "DATA_DB_PATH"
+
+# KIS API
+kis:
+  base_url: "https://openapi.koreainvestment.com:9443"
+  rate_limit:
+    requests_per_second: 3
+    sleep_between_requests: 0.05
+    sleep_between_groups: 10
+    sleep_between_pages: 0.2
+
+# Airflow
+airflow:
+  webserver_port: 8080
+
+# Dashboard
+dashboard:
+  port: 8050

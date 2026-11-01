@@ -1,0 +1,43 @@
+# KIS OpenAPI 설정
+# 환경변수로 덮어쓰기 가능
+
+prod_api:
+  app_key: ${KIS_APP_KEY}
+  app_secret: ${KIS_APP_SECRET}
+  base_url: "https://openapi.koreainvestment.com:9443"
+
+vps_api:
+  app_key: ${KIS_VPS_APP_KEY}
+  app_secret: ${KIS_VPS_APP_SECRET}
+  base_url: "https://openapivts.koreainvestment.com:29443"
+
+# KIS API 엔드포인트 매핑
+kis_api_endpoints:
+  # 투자자별 매매동향
+  FHPTJ04030000: "/uapi/domestic-stock/v1/quotations/inquire-investor-time-by-market"  # 시장별 시간대별
+  FHPTJ04040000: "/uapi/domestic-stock/v1/quotations/investor-trend-daily" # 일별
+
+  # 선물옵션 시세
+  FHKIF03020100: "/uapi/domestic-futureoption/v1/quotations/inquire-daily"
+  FHKIF03020200: "/uapi/domestic-futureoption/v1/quotations/inquire-minute"
+  FHPIF05030100: "/uapi/domestic-futureoption/v1/quotations/inquire-asking-price"
+  FHPIF05030200: "/uapi/domestic-futureoption/v1/quotations/inquire-daily-fuop"
+
+  # 해외선물 시세
+  HHDFC55020400: "/uapi/overseas-price/v1/quotations/inquire-daily-ovrs-futr"
+  HHDDB95030000: "/uapi/overseas-price/v1/quotations/cot-report"
+
+  # 주식 분봉
+  FHKST03010200: "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice"
+
+  # 선물 현재가
+  FHMIF10000000: "/uapi/domestic-futureoption/v1/quotations/inquire-price"
+
+# 수집 대상 설정
+collection_targets:
+  investor_trading_time:
+    tr_id: "FHPTJ04030000"
+    fid_input_iscd: "KSP"      # KOSPI
+    fid_input_iscd_2: "0001"   # 종합지수
+    interval_seconds: 60       # 1분 간격
+    description: "투자자별 매매동향 (시간대별)"

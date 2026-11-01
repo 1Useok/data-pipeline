@@ -1,0 +1,2 @@
+# Same pinned runtime as the Airflow image (docker/requirements-airflow.txt), for running tests locally.
+-r docker/requirements-airflow.txt
